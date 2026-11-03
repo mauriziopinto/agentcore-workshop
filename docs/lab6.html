@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 6 · Observability ed Evaluations</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Lab 6 · Observability ed Evaluations</h1>
+<p class="sottotitolo">Guardi cosa ha fatto l'agente passo per passo e fai dare un voto alle sue conversazioni. Venticinque minuti.</p>
+
+<h2>Parte A · Observability</h2>
+<div class="riquadro concetto"><span class="titolo">Concetto: AgentCore Observability</span>
+<p>Ogni richiesta all'agente produce una <em>trace</em> OpenTelemetry, composta da <em>span</em>: la chiamata all'agente, ogni chiamata al modello, ogni strumento. Il modello del progetto include già la libreria AWS Distro for OpenTelemetry, che manda trace e log a CloudWatch. Al primo deploy il CLI ha attivato CloudWatch Transaction Search, che rende le trace consultabili.</p>
+</div>
+
+<ol class="passi">
+<li>
+  <p>Elenca le trace dell'ultima ora. C'è una trace per ogni richiesta, con l'ID di sessione accanto.</p>
+  <div class="blocco"><pre><code>agentcore traces runtime list --since 1h</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <pre class="uscita">TRACE ID                          TIMESTAMP             SESSION ID
+6ae9d9b247fbcadf299b76b74eb69fb4  2026-11-03 12:55:27Z  telcocare-luca-sollecito-000000000000000
+6ae9d901722ff9552960fb863865898e  2026-11-03 12:52:35Z  telcocare-anna-fibra-0000000000000000000
+...</pre>
+  Una trace compare nell'elenco qualche minuto dopo la richiesta: se mancano le ultime, riprova più tardi.</div>
+</li>
+
+<li>
+  <p>Scarica una trace, per esempio quella della fattura di Giulia del Lab 3. Il comando la salva in un file <code>&lt;TRACE_ID&gt;.json</code> nella cartella corrente.</p>
+  <div class="blocco"><pre><code>agentcore traces runtime get &lt;TRACE_ID&gt;</code></pre></div>
+  <p>Il file contiene i log e gli span della richiesta. In una delle nostre trace c'erano, in ordine: la lettura degli eventi e dei ricordi dalla Memory (<code>ListEvents</code>, <code>RetrieveMemoryRecords</code>), l'elenco degli strumenti dal Gateway (<code>mcp tools/list</code>), una chiamata al modello, due chiamate al CRM (<code>mcp tools/call crm___get_fatture</code> e <code>crm___get_cliente</code>), una seconda chiamata al modello e il salvataggio dei messaggi in Memory (<code>CreateEvent</code>). Ogni span ha la sua durata, e quelli del modello anche i token.</p>
+</li>
+
+<li>
+  <p>Cerca gli errori nei log dell'ultima ora. Dovresti trovare la riga <code>tool execution failed</code> del rifiuto della regola Cedar nel Lab 4.</p>
+  <div class="blocco"><pre><code>agentcore logs runtime --since 1h --level error</code></pre></div>
+</li>
+
+<li>
+  <p>Apri la console. In CloudWatch, nel menu di sinistra scegli <em>GenAI Observability</em> e poi <em>Bedrock AgentCore</em>. Trovi tre viste: <em>Agents</em> con le metriche del Runtime, <em>Sessions</em> con tutte le sessioni e <em>Traces</em>, dove una trace si apre come una sequenza temporale di span.</p>
+  <p>Apri una sessione di Anna e cerca la chiamata alla Memory all'inizio e la chiamata allo strumento in mezzo.</p>
+</li>
+</ol>
+
+<h2>Parte B · Evaluations</h2>
+<div class="riquadro concetto"><span class="titolo">Concetto: AgentCore Evaluations</span>
+<p>Evaluations dà un voto alle conversazioni dell'agente. Un valutatore <em>LLM-as-a-judge</em> è un modello che legge la conversazione e la giudica secondo istruzioni che scrivi tu. Esistono anche valutatori già pronti, come <code>Builtin.Helpfulness</code>.</p>
+<p>La valutazione può essere <em>online</em>, cioè su una parte del traffico reale, in continuo, oppure <em>on demand</em> su sessioni che scegli tu. Entrambe leggono le trace della Parte A.</p>
+</div>
+
+<ol class="passi">
+<li>
+  <p>Aggiungi un valutatore con istruzioni in italiano. Le istruzioni sono in un file, perché contengono apostrofi che darebbero problemi alla shell. Il segnaposto <code>{context}</code> viene sostituito con la conversazione.</p>
+  <div class="blocco"><pre><code>cat ../risorse/lab6/istruzioni-valutatore.txt
+
+agentcore add evaluator llm-as-a-judge --name QualitaAssistenza --level SESSION \
+  --model us.anthropic.claude-sonnet-4-5-20250929-v1:0 --rating-scale 1-5-quality \
+  --instructions file://../risorse/lab6/istruzioni-valutatore.txt</code></pre></div>
+  <div class="riquadro attenzione"><span class="titolo">Una trappola che abbiamo trovato</span>
+  Con il modello dell'agente, Claude Sonnet 5.5, il deploy del valutatore fallisce: il servizio passa al modello il parametro <code>temperature</code>, che quel modello non accetta più. Per questo il giudice è Claude Sonnet 4.5, come nel tutorial ufficiale.</div>
+</li>
+
+<li>
+  <p>Aggiungi una valutazione online sul 100% delle sessioni, con il tuo valutatore e quello già pronto. Poi pubblica: circa 2 minuti.</p>
+  <div class="blocco"><pre><code>agentcore add online-eval --name MonitorAssistenza --agent agent \
+  --evaluators QualitaAssistenza Builtin.Helpfulness --sampling-rate 100
+agentcore deploy</code></pre></div>
+</li>
+
+<li>
+  <p>Genera una conversazione da valutare. Luca ha una fattura scaduta e preferisce gli SMS.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente luca --sessione sollecito "Sono Luca Verdi, cliente C003. Mi è arrivato un sollecito per la fattura di ottobre. Cosa devo fare? Preferisco essere avvisato via SMS."</code></pre></div>
+</li>
+
+<li>
+  <p>Aspetta circa 2 minuti, il tempo perché la trace diventi consultabile. Intanto rileggi la Parte A. Poi valuta la sessione on demand.</p>
+  <div class="blocco"><pre><code>agentcore eval ondemand evaluate \
+  --agent $(python3 ../scripts/id.py runtime) \
+  --evaluators $(python3 ../scripts/id.py evaluator) Builtin.Helpfulness \
+  --session-ids $(python3 ../scripts/chiedi.py --utente luca --sessione sollecito --solo-id) \
+  --lookback-days 1</code></pre></div>
+  <div class="riquadro attenzione"><span class="titolo">Attenzione</span>
+  Se ricevi <code>Provided input has no spans to evaluate</code>, la trace non è ancora pronta. Aspetta un altro minuto e riprova. Nelle nostre prove dopo 1 minuto e mezzo non c'era ancora, dopo 2 minuti sì.</div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Due voti, ognuno con la sua spiegazione. In due prove con la stessa domanda il nostro valutatore ha dato 4 (Good) e 3 (Fair), il valutatore già pronto 0,83 (Very Helpful):
+  <pre class="uscita">"evaluatorName": "TelcoCare_default_QualitaAssistenza",
+"explanation": "L'assistente ha utilizzato correttamente i dati del CRM ... il cliente ha esplicitamente
+richiesto di essere avvisato via SMS, ma l'assistente ha solo proposto di aprire un ticket ...",
+"value": 3,
+"label": "Fair"
+...
+"evaluatorName": "Builtin.Helpfulness",
+"value": 0.83,
+"label": "Very Helpful"</pre>
+  Il giudice toglie punti perché l'agente non ha uno strumento per cambiare le preferenze di notifica. È un'indicazione utile: al CRM manca uno strumento. Che il voto cambi fra due prove è normale, perché anche il giudice è un modello.</div>
+</li>
+
+<li>
+  <p>Fra qualche minuto la valutazione online scriverà i suoi risultati in CloudWatch. Per vedere dove:</p>
+  <div class="blocco"><pre><code>agentcore eval online-eval get --id $(python3 ../scripts/id.py online-eval)</code></pre></div>
+</li>
+</ol>
+
+<div class="riquadro concetto"><span class="titolo">Cosa vede il giudice</span>
+<p>Il valutatore legge solo la sessione che valuta. Se l'agente ha usato un ricordo di un'altra sessione, per esempio la preferenza per l'email di Anna, il giudice non sa da dove viene e può considerarlo un'invenzione. Il tutorial ufficiale mostra lo stesso effetto. Tienine conto quando scrivi le istruzioni.</p>
+</div>
+
+<div class="riquadro kiro"><span class="titolo">Prova con Kiro</span>
+<p>Scarica una trace e chiedi a Kiro di spiegartela:</p>
+<div class="blocco"><pre><code>agentcore traces runtime get &lt;TRACE_ID&gt;
+kiro-cli chat</code></pre></div>
+<p><em>Leggi il file &lt;TRACE_ID&gt;.json e dimmi in ordine cosa ha fatto l'agente, quanti token ha usato in tutto e quale passo è stato il più lento.</em></p>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

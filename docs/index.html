@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workshop Amazon Bedrock AgentCore</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Workshop Amazon Bedrock AgentCore</h1>
+<p class="sottotitolo">In tre ore costruisci un assistente clienti per un operatore di telecomunicazioni e lo porti su AgentCore, aggiungendo una funzione alla volta.</p>
+
+<h2>Cosa costruiamo</h2>
+<p>TelcoCare è un operatore di fantasia. Il suo assistente clienti risponde in italiano, legge i dati dei clienti dal CRM, ricorda le preferenze di chi scrive, può emettere piccoli accrediti e fa calcoli sui consumi. Tutti i dati sono inventati.</p>
+<p>Si parte da un agente scritto con <a href="https://strandsagents.com/">Strands Agents</a> in Python. In ogni lab aggiungi una funzione di AgentCore e vedi cosa cambia nel comportamento dell'agente.</p>
+
+<div class="architettura">
+  <div class="casella"><span class="lab">Lab 1</span><strong>Runtime</strong>Esegue il codice dell'agente senza server da gestire. Ogni sessione gira in una microVM isolata.</div>
+  <div class="casella"><span class="lab">Lab 2</span><strong>Memory</strong>Conserva le conversazioni ed estrae ricordi a lungo termine: fatti, preferenze, riassunti.</div>
+  <div class="casella"><span class="lab">Lab 3</span><strong>Gateway</strong>Trasforma una Lambda in strumenti MCP raggiungibili da un unico endpoint.</div>
+  <div class="casella"><span class="lab">Lab 3</span><strong>Identity</strong>Decide chi può chiamare cosa: in ingresso con IAM o token, in uscita con ruoli e credenziali custodite.</div>
+  <div class="casella"><span class="lab">Lab 4</span><strong>Policy</strong>Regole Cedar che il Gateway applica a ogni chiamata, fuori dal controllo del modello.</div>
+  <div class="casella"><span class="lab">Lab 5</span><strong>Code Interpreter e Browser</strong>Una sandbox per eseguire codice e un browser remoto, entrambi isolati e gestiti da AWS.</div>
+  <div class="casella"><span class="lab">Lab 6</span><strong>Observability</strong>Trace, log e metriche dell'agente in CloudWatch.</div>
+  <div class="casella"><span class="lab">Lab 6</span><strong>Evaluations</strong>Un modello giudice dà un voto alle conversazioni, su richiesta o in continuo.</div>
+  <div class="casella"><span class="lab">Bonus</span><strong>Harness</strong>Un agente definito solo in configurazione, senza scrivere codice.</div>
+</div>
+
+<h2>Scaletta</h2>
+<table>
+  <tr><th>Parte</th><th>Durata</th><th>Cosa fai</th></tr>
+  <tr><td>Benvenuto</td><td>10 minuti</td><td>Introduzione ad AgentCore e al caso TelcoCare</td></tr>
+  <tr><td><a href="lab0.html">Lab 0</a></td><td>10 minuti</td><td>Controlli l'ambiente</td></tr>
+  <tr><td><a href="lab1.html">Lab 1</a></td><td>25 minuti</td><td>Crei l'agente, lo provi in locale e lo pubblichi sul Runtime</td></tr>
+  <tr><td><a href="lab2.html">Lab 2</a></td><td>25 minuti</td><td>Aggiungi la memoria a lungo termine</td></tr>
+  <tr><td>Pausa</td><td>10 minuti</td><td></td></tr>
+  <tr><td><a href="lab3.html">Lab 3</a></td><td>25 minuti</td><td>Colleghi il CRM attraverso il Gateway</td></tr>
+  <tr><td><a href="lab4.html">Lab 4</a></td><td>15 minuti</td><td>Limiti gli accrediti con una regola Cedar</td></tr>
+  <tr><td><a href="lab5.html">Lab 5</a></td><td>20 minuti</td><td>Dai all'agente una sandbox per il codice e un browser</td></tr>
+  <tr><td><a href="lab6.html">Lab 6</a></td><td>25 minuti</td><td>Guardi le trace e fai valutare le conversazioni</td></tr>
+  <tr><td><a href="pulizia.html">Pulizia</a> e domande</td><td>15 minuti</td><td>Cancelli tutto quello che hai creato</td></tr>
+</table>
+<p>Il <a href="bonus.html">lab bonus</a> è per chi finisce prima.</p>
+
+<h2>Come sono fatti i lab</h2>
+<p>Ogni lab ha un obiettivo, una breve spiegazione e una serie di passi numerati. I comandi si copiano con il pulsante <em>Copia</em> e si incollano nel terminale di Code Editor. Tutti i comandi partono dalla cartella del progetto, salvo dove è indicato diversamente.</p>
+<div class="riquadro concetto"><span class="titolo">Concetto</span>Spiega cosa fa la funzione di AgentCore che stai usando.</div>
+<div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>Descrive il risultato atteso, così sai se il passo è andato bene.</div>
+<div class="riquadro attenzione"><span class="titolo">Attenzione</span>Segnala un errore frequente e come risolverlo.</div>
+<div class="riquadro kiro"><span class="titolo">Prova con Kiro</span>Un esercizio facoltativo con Kiro CLI. Non serve per andare avanti.</div>
+
+<p>Alcuni passi fanno un <code>agentcore deploy</code>, che dura da 2 a 5 minuti. Usa l'attesa per leggere la spiegazione del lab.</p>
+
+<h2>Da sapere prima di iniziare</h2>
+<ul>
+  <li>Ognuno lavora nel proprio account AWS, nella regione <code>us-east-1</code>.</li>
+  <li>Le risorse create costano poco, ma vanno cancellate alla fine con la <a href="pulizia.html">pulizia</a>.</li>
+  <li>Il percorso segue il tutorial ufficiale AWS <a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-cli-get-started.html">Build, deploy, and operate an agent</a>, adattato a un caso telco e con in più Code Interpreter, Browser e harness.</li>
+  <li>I lab sono stati provati con AgentCore CLI 1.0.1. Con un'altra versione qualche messaggio può essere diverso.</li>
+</ul>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

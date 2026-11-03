@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 0 · L'ambiente</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Lab 0 · L'ambiente</h1>
+<p class="sottotitolo">Controlli che Code Editor abbia tutto quello che serve. Dieci minuti.</p>
+
+<p>Il tuo ambiente ha già AWS CLI, AgentCore CLI e Kiro CLI configurati. In questo lab non crei nulla: controlli le versioni, imposti la regione e fai una chiamata di prova al modello.</p>
+
+<ol class="passi">
+<li>
+  <p>Apri un terminale in Code Editor dal menu <em>Terminal</em>, <em>New Terminal</em>.</p>
+</li>
+
+<li>
+  <p>Vai nella cartella del repository del workshop. Se nel tuo ambiente non c'è ancora, clonalo con il link che ti dà chi conduce il workshop.</p>
+  <div class="blocco"><pre><code>cd ~/agentcore-workshop
+ls</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Le cartelle <code>docs</code> (questo sito), <code>risorse</code> (i file da copiare nei lab) e <code>scripts</code> (piccoli strumenti di supporto).</div>
+</li>
+
+<li>
+  <p>Imposta la regione per questo terminale e per quelli che aprirai dopo.</p>
+  <div class="blocco"><pre><code>export AWS_REGION=us-east-1
+echo 'export AWS_REGION=us-east-1' &gt;&gt; ~/.bashrc</code></pre></div>
+</li>
+
+<li>
+  <p>Lancia lo script di verifica.</p>
+  <div class="blocco"><pre><code>bash scripts/verifica_ambiente.sh</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Una riga <code>[ok]</code> per ogni controllo e alla fine <code>Tutto pronto</code>. La chiamata di prova al modello Claude Sonnet risponde <code>pronto</code>.
+  <pre class="uscita">  [ok]  credenziali AWS: arn:aws:sts::123456789012:assumed-role/...
+  [ok]  regione us-east-1
+  [ok]  Node.js v22...
+  [ok]  uv 0.8...
+  [ok]  Python 3.12...
+  [ok]  AgentCore CLI 1.0.1
+  [ok]  Kiro CLI 2...
+  [ok]  il modello risponde: pronto
+
+Tutto pronto. Puoi passare al Lab 1.</pre></div>
+  <div class="riquadro attenzione"><span class="titolo">Attenzione</span>
+  Se il modello non risponde con un errore di accesso, il tuo account non ha ancora abilitato i modelli Anthropic su Amazon Bedrock. Chiama chi conduce il workshop.</div>
+</li>
+
+<li>
+  <p>Dai un'occhiata ai comandi del CLI. Ogni comando ha il suo <code>--help</code>.</p>
+  <div class="blocco"><pre><code>agentcore --help</code></pre></div>
+  <p>Lanciato senza argomenti, <code>agentcore</code> apre un'interfaccia interattiva nel terminale. Nei lab usiamo sempre i comandi con le opzioni, così puoi copiarli così come sono.</p>
+</li>
+</ol>
+
+<div class="riquadro kiro"><span class="titolo">Prova con Kiro</span>
+<p>Kiro CLI è già configurato. Aprilo nella cartella del workshop e chiedigli di orientarti:</p>
+<div class="blocco"><pre><code>kiro-cli chat</code></pre></div>
+<p>Poi scrivi, per esempio: <em>Leggi la cartella risorse e dimmi in una frase per ogni lab quali file contiene.</em> Esci con <code>/quit</code>.</p>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# Il progetto creato da ogni partecipante nel Lab 1
+TelcoCare/
+
+__pycache__/
+*.pyc
+.DS_Store
+trace.json

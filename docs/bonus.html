@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bonus · Agente senza codice</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Bonus · Agente senza codice</h1>
+<p class="sottotitolo">Un secondo agente definito solo in configurazione, con l'harness di AgentCore. Per chi ha finito prima.</p>
+
+<div class="riquadro concetto"><span class="titolo">Concetto: harness</span>
+<p>Finora hai scritto il codice dell'agente e AgentCore lo ha eseguito. Con l'harness scrivi solo la configurazione (modello, prompt di sistema, strumenti, limiti) e il ciclo dell'agente lo gestisce AgentCore, con Strands. Ogni sessione ha la sua microVM con una shell e un filesystem, che l'agente usa con gli strumenti già inclusi.</p>
+<p>L'harness è comodo quando la logica è quella standard di un agente. Quando serve controllo sul codice, come nei lab precedenti, si torna al Runtime.</p>
+</div>
+
+<ol class="passi">
+<li>
+  <p>Aggiungi un harness al progetto.</p>
+  <div class="blocco"><pre><code>agentcore add harness --name assistentesenzacodice \
+  --model '{"provider":"bedrock","modelId":"global.anthropic.claude-sonnet-5-5"}' \
+  --system-prompt "Sei un assistente clienti TelcoCare. Rispondi in italiano, in modo breve, senza emoji."</code></pre></div>
+  <p>Il CLI crea la cartella <code>app/assistentesenzacodice</code> con due file: <code>harness.yaml</code>, la configurazione commentata, e <code>system-prompt.md</code>, il prompt di sistema.</p>
+  <div class="blocco"><pre><code>cat app/assistentesenzacodice/harness.yaml</code></pre></div>
+  <p>Leggi i commenti: spiegano come aggiungere strumenti MCP remoti, skill, memoria e limiti per ogni richiesta, come <code>maxIterations</code> e <code>timeoutSeconds</code>.</p>
+</li>
+
+<li>
+  <p>Pubblica. Nelle nostre prove ci sono voluti circa 4 minuti e mezzo, perché l'harness crea anche una sua Memory.</p>
+  <div class="blocco"><pre><code>agentcore deploy</code></pre></div>
+</li>
+
+<li>
+  <p>Chiedi all'harness un compito che usa la shell e i file.</p>
+  <div class="blocco"><pre><code>agentcore invoke --harness assistentesenzacodice \
+  --prompt "Scrivi un file rate.py che calcola la rata mensile di uno smartphone da 899 euro in 30 rate, eseguilo e dimmi il risultato."</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Una risposta in JSON con i passi dell'agente: una scrittura di file, un comando <code>shell</code> con <code>python3 rate.py</code> e il testo finale con 29,97 euro. Nella nostra prova ha impiegato circa 10 secondi.</div>
+</li>
+</ol>
+
+<div class="riquadro attenzione"><span class="titolo">Attenzione</span>
+<p>Con <code>allowedTools: ["*"]</code>, il valore predefinito, l'harness può usare la shell nella sua microVM. Va bene per una prova. Per un uso reale restringi gli strumenti consentiti e i limiti di ogni richiesta.</p>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

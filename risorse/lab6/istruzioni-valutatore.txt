@@ -1,0 +1,1 @@
+Valuta da {context} se l'assistente clienti TelcoCare ha risolto la richiesta del cliente: ha usato i dati del CRM invece di inventarli, ha rispettato le preferenze di contatto e ha indicato un passo successivo chiaro. Rispondi in italiano.

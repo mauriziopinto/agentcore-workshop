@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 3 · Gateway e Identity</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Lab 3 · Gateway e Identity</h1>
+<p class="sottotitolo">Colleghi l'agente al CRM di TelcoCare attraverso AgentCore Gateway, e vedi chi autentica chi a ogni passaggio. Venticinque minuti.</p>
+
+<div class="riquadro concetto"><span class="titolo">Concetto: AgentCore Gateway</span>
+<p>Gateway espone degli strumenti con il protocollo MCP (Model Context Protocol) da un unico endpoint. Gli strumenti possono venire da una funzione Lambda, da un'API descritta in OpenAPI, da un server MCP esistente o da altre fonti. L'agente non sa dove sta il codice di ogni strumento: vede solo un elenco di strumenti MCP.</p>
+<p>Il vantaggio è che lo stesso strumento serve a più agenti, e i controlli (chi può chiamare, con quali regole) stanno in un punto solo.</p>
+</div>
+
+<p>Il CRM di TelcoCare è una Lambda con quattro strumenti: <code>get_cliente</code>, <code>get_fatture</code>, <code>apri_ticket</code> ed <code>emetti_accredito</code>. I dati sono finti e fissi nel codice: tre clienti, <code>C001</code>, <code>C002</code> e <code>C003</code>.</p>
+
+<ol class="passi">
+<li>
+  <p>Crea la Lambda del CRM con CloudFormation. Ci vuole circa un minuto.</p>
+  <div class="blocco"><pre><code>aws cloudformation deploy --stack-name telcocare-crm \
+  --template-file ../risorse/lab3/crm-lambda.yaml --capabilities CAPABILITY_IAM
+
+CRM_ARN=$(aws cloudformation describe-stacks --stack-name telcocare-crm \
+  --query "Stacks[0].Outputs[?OutputKey=='CrmFunctionArn'].OutputValue" --output text)
+echo $CRM_ARN</code></pre></div>
+  <p>La Lambda non ha un URL pubblico. La può chiamare solo chi ha il permesso IAM <code>lambda:InvokeFunction</code>, cioè il ruolo del Gateway che crei fra poco.</p>
+</li>
+
+<li>
+  <p>Copia nel progetto lo schema degli strumenti. Per ogni strumento descrive nome, scopo e parametri: è quello che il modello legge per decidere quando usarlo.</p>
+  <div class="blocco"><pre><code>mkdir -p schemas
+cp ../risorse/lab3/crm_tools.json schemas/</code></pre></div>
+</li>
+
+<li>
+  <p>Aggiungi un Gateway con autorizzazione IAM, poi la Lambda come <em>target</em>.</p>
+  <div class="blocco"><pre><code>agentcore add gateway --name strumenti --authorizer-type AWS_IAM
+
+agentcore add gateway-target --gateway strumenti --target-configuration \
+  "{\"name\":\"crm\",\"targetType\":\"lambdaFunctionArn\",\"lambdaFunctionArn\":{\"lambdaArn\":\"$CRM_ARN\",\"toolSchemaFile\":\"schemas/crm_tools.json\"}}"</code></pre></div>
+  <div class="riquadro attenzione"><span class="titolo">Attenzione</span>
+  Se hai aperto un terminale nuovo dopo il passo 1, la variabile <code>CRM_ARN</code> è vuota. Rilancia il comando <code>CRM_ARN=$(...)</code> del passo 1 prima di aggiungere il target.</div>
+</li>
+
+<li>
+  <p>Collega l'agente al Gateway.</p>
+  <div class="blocco"><pre><code>cp ../risorse/lab3/gateway_client.py app/agent/gateway_client.py
+cp ../risorse/lab3/main.py app/agent/main.py</code></pre></div>
+  <p><code>gateway_client.py</code> crea un client MCP che firma ogni richiesta con le credenziali AWS del Runtime (firma SigV4). L'indirizzo del Gateway arriva dalla variabile <code>AGENTCORE_GATEWAY_STRUMENTI_URL</code>, che il deploy imposta nel Runtime. In <code>main.py</code> il client si aggiunge alla lista degli strumenti, accanto a <code>calcola_rata</code>.</p>
+  <div class="blocco"><span class="etichetta">app/agent/main.py (estratto)</span><pre><code>tools.append(calcola_rata)
+
+# Lab 3: gli strumenti del CRM arrivano dal Gateway
+gateway = get_gateway_client()
+if gateway:
+    tools.append(gateway)</code></pre></div>
+  <div class="riquadro attenzione"><span class="titolo">Una trappola che abbiamo trovato</span>
+  Con il CLI 1.0.1 la variabile contiene solo l'indirizzo del Gateway, senza il percorso <code>/mcp</code> su cui risponde il server MCP. Il codice del tutorial ufficiale usa la variabile così com'è e la connessione fallisce con un errore poco chiaro (<code>Failed to start MCP client</code>). Il nostro <code>gateway_client.py</code> aggiunge <code>/mcp</code> se manca.</div>
+</li>
+
+<li>
+  <p>Pubblica. Il deploy crea il Gateway, il suo ruolo IAM, il target e dà al ruolo del Runtime il permesso di chiamare il Gateway. Ci vogliono circa 2 minuti e mezzo.</p>
+  <div class="blocco"><pre><code>agentcore deploy</code></pre></div>
+</li>
+
+<li>
+  <p>Chiedi al Gateway l'elenco degli strumenti, con una chiamata MCP <code>tools/list</code>.</p>
+  <div class="blocco"><pre><code>agentcore invoke --gateway strumenti --path /mcp \
+  --payload '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  I quattro strumenti, con il nome del target davanti: <code>crm___get_cliente</code>, <code>crm___get_fatture</code>, <code>crm___apri_ticket</code>, <code>crm___emetti_accredito</code>.</div>
+</li>
+
+<li>
+  <p>Controlla che il Gateway rifiuti chi non è autenticato. Questa chiamata non ha firma IAM.</p>
+  <div class="blocco"><pre><code>GATEWAY_URL=$(aws bedrock-agentcore-control get-gateway \
+  --gateway-identifier $(python3 ../scripts/id.py gateway) --query gatewayUrl --output text)
+curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST "$GATEWAY_URL/mcp" \
+  -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <code>HTTP 401</code>, cioè autenticazione mancante. Il comando <code>agentcore invoke</code> del passo prima funzionava perché il CLI firma la richiesta con le tue credenziali.</div>
+</li>
+
+<li>
+  <p>Ora prova l'agente. Giulia ha una fattura di ottobre più alta del solito.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente giulia --sessione fattura "Sono Giulia Bianchi, codice cliente C002. La fattura di ottobre mi sembra alta, potete controllare?"</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <pre class="uscita">[strumento] crm___get_fatture
+[strumento] crm___get_cliente
+Giulia, ho controllato e ha ragione. La fattura di ottobre 2026 (F2026-1021) è di 29,98 euro,
+il doppio di settembre: il canone di ottobre è stato addebitato due volte. ...</pre>
+  L'agente ha trovato da solo l'addebito doppio leggendo i dati del CRM. Probabilmente ti propone un accredito: tienilo da parte, è l'argomento del Lab 4.</div>
+</li>
+</ol>
+
+<h2>Identity: chi autentica chi</h2>
+<div class="riquadro concetto"><span class="titolo">Concetto: AgentCore Identity</span>
+<p>Identity gestisce due lati. In ingresso decide chi può chiamare un agente o un Gateway: con IAM, come qui, oppure con token JWT di un provider di identità. In uscita fornisce all'agente o al Gateway le credenziali per chiamare altri sistemi: un ruolo IAM, una chiave API o un token OAuth. Le chiavi e i segreti OAuth stanno in un archivio di AgentCore Identity, non nel codice né nelle variabili d'ambiente.</p>
+</div>
+<p>Nel percorso che hai appena costruito ogni passaggio ha la sua autenticazione:</p>
+<table>
+  <tr><th>Da</th><th>A</th><th>Come si autentica</th></tr>
+  <tr><td>Tu, dal terminale</td><td>Runtime</td><td>IAM: il CLI firma la richiesta con le tue credenziali AWS</td></tr>
+  <tr><td>Runtime</td><td>Gateway</td><td>IAM: il ruolo di esecuzione del Runtime, a cui il deploy ha dato il permesso di chiamare il Gateway</td></tr>
+  <tr><td>Gateway</td><td>Lambda del CRM</td><td>IAM: il ruolo del Gateway, con il permesso di invocare la Lambda</td></tr>
+</table>
+<p>Il ruolo del Runtime ha anche il permesso <code>bedrock-agentcore:GetWorkloadAccessToken</code>. Ogni agente ha una sua <em>identità di workload</em> in AgentCore Identity: è con questa identità che il codice dell'agente può chiedere all'archivio una chiave API o un token OAuth, quando ne ha bisogno.</p>
+<p>Per un'API esterna che vuole una chiave, la chiave si registra in AgentCore Identity e il target del Gateway la usa al posto tuo. Il tutorial ufficiale lo fa con un'API della NASA:</p>
+<div class="blocco"><span class="etichetta">esempio dal tutorial ufficiale, non serve eseguirlo</span><pre><code>printf 'DEMO_KEY' | agentcore add credentials api-key --name nasa --api-key -</code></pre></div>
+<p>Il CLI rifiuta le chiavi scritte nel comando: si passano sullo standard input, così non restano nella cronologia della shell. Trovi l'esempio completo nella sezione <a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-cli-get-started.html">Tools del tutorial ufficiale</a>.</p>
+
+<div class="riquadro kiro"><span class="titolo">Prova con Kiro</span>
+<p>Chiedi a Kiro di aggiungere un quinto strumento al CRM, per esempio <em>Aggiungi alla Lambda in ../risorse/lab3/crm-lambda.yaml uno strumento cambia_offerta(id_cliente, nuova_offerta) e aggiungi il suo schema in schemas/crm_tools.json.</em> Poi aggiorna lo stack con lo stesso <code>aws cloudformation deploy</code> del passo 1 e fai <code>agentcore deploy</code>. Rilancia <code>tools/list</code> per vederlo comparire.</p>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

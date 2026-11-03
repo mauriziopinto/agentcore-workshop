@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 5 · Code Interpreter e Browser</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Lab 5 · Code Interpreter e Browser</h1>
+<p class="sottotitolo">L'agente esegue codice Python in una sandbox e legge pagine web con un browser remoto. Venti minuti.</p>
+
+<div class="riquadro concetto"><span class="titolo">Concetto: gli strumenti gestiti da AWS</span>
+<p><strong>Code Interpreter</strong> esegue il codice scritto dal modello in una sandbox isolata gestita da AgentCore, non nel Runtime del tuo agente. Serve per calcoli, statistiche e analisi di dati, dove un modello che fa i conti a mente sbaglia facilmente.</p>
+<p><strong>Browser</strong> apre un browser in un ambiente isolato gestito da AgentCore. Il tuo codice lo guida da remoto con il protocollo CDP (Chrome DevTools Protocol), qui attraverso la libreria Playwright.</p>
+<p>Per entrambi il ruolo del Runtime ha bisogno di permessi IAM specifici, che il CLI non aggiunge da solo. Li aggiungiamo nello stack CDK del progetto.</p>
+</div>
+
+<ol class="passi">
+<li>
+  <p>Copia i due strumenti e il nuovo <code>main.py</code>.</p>
+  <div class="blocco"><pre><code>cp ../risorse/lab5/strumenti_aws.py app/agent/strumenti_aws.py
+cp ../risorse/lab5/main.py app/agent/main.py</code></pre></div>
+  <p><code>strumenti_aws.py</code> contiene due strumenti Strands. <code>esegui_python</code> apre una sessione di Code Interpreter e ci esegue il codice. <code>leggi_pagina_web</code> apre una sessione di Browser, ci si collega con Playwright, carica la pagina e restituisce il testo.</p>
+  <div class="blocco"><span class="etichetta">app/agent/strumenti_aws.py (estratto)</span><pre><code>@tool
+def esegui_python(codice: str) -&gt; str:
+    """Esegue codice Python in una sandbox isolata (AgentCore Code Interpreter) ..."""
+    with code_session(REGION) as client:
+        risposta = client.invoke("executeCode", {"code": codice, "language": "python"})
+        for evento in risposta["stream"]:
+            return json.dumps(evento["result"], ensure_ascii=False)</code></pre></div>
+</li>
+
+<li>
+  <p>Aggiungi Playwright alle dipendenze dell'agente.</p>
+  <div class="blocco"><pre><code>(cd app/agent &amp;&amp; uv add "playwright&gt;=1.42,&lt;2")</code></pre></div>
+  <p>Serve solo la libreria Python: il browser vero è quello remoto di AgentCore, quindi non installi Chromium.</p>
+</li>
+
+<li>
+  <p>Dai al Runtime i permessi per Code Interpreter e Browser, sostituendo lo stack CDK del progetto.</p>
+  <div class="blocco"><pre><code>cp ../risorse/lab5/cdk-stack.ts agentcore/cdk/lib/cdk-stack.ts</code></pre></div>
+  <div class="blocco"><span class="etichetta">agentcore/cdk/lib/cdk-stack.ts (estratto)</span><pre><code>if (props.application.spec.runtimes?.some((r) =&gt; r.name === 'agent')) {
+  const agent = this.application.runtime('agent');
+  agent.grant(
+    ['bedrock-agentcore:StartCodeInterpreterSession', 'bedrock-agentcore:InvokeCodeInterpreter', ...],
+    [`arn:${this.partition}:bedrock-agentcore:${this.region}:aws:code-interpreter/*`],
+  );
+  agent.grant(
+    ['bedrock-agentcore:StartBrowserSession', 'bedrock-agentcore:ConnectBrowserAutomationStream', ...],
+    [`arn:${this.partition}:bedrock-agentcore:${this.region}:aws:browser/*`],
+  );
+}</code></pre></div>
+  <p>Questo file è il punto in cui aggiungi al progetto le risorse e i permessi che <code>agentcore.json</code> non descrive. Il controllo <code>if</code> serve per la pulizia finale: quando togli il Runtime dal progetto, lo stack non deve più cercarlo.</p>
+</li>
+
+<li>
+  <p>Pubblica. Ci vogliono circa 3 minuti: il pacchetto è più grande per via di Playwright.</p>
+  <div class="blocco"><pre><code>agentcore deploy</code></pre></div>
+</li>
+
+<li>
+  <p>Chiedi un'analisi dei consumi che richiede dei calcoli.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione consumi "Questi sono i miei consumi di dati mobili degli ultimi sei mesi, in GB: maggio 38, giugno 52, luglio 71, agosto 95, settembre 47, ottobre 44. Calcola media, massimo e deviazione standard eseguendo codice Python, poi dimmi se mi basta un piano da 50 GB o se serve quello da 150 GB."</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <code>[strumento] esegui_python</code>, poi la media (circa 57,8 GB), il massimo (95 GB, agosto) e la deviazione standard, con un consiglio sul piano. Se nel Lab 2 hai detto all'agente che lavori da remoto, potrebbe tenerne conto.</div>
+</li>
+
+<li>
+  <p>Chiedi all'agente di leggere una pagina web.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione fibra "Leggi la pagina https://it.wikipedia.org/wiki/Fiber_to_the_x e spiegami in tre frasi la differenza fra FTTC e FTTH."</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <code>[strumento] leggi_pagina_web</code> e una spiegazione basata sulla pagina, per esempio che con la FTTC la fibra si ferma all'armadio stradale e l'ultimo tratto è in rame. Nelle nostre prove la risposta è arrivata in circa 20 secondi.</div>
+</li>
+</ol>
+
+<div class="riquadro attenzione"><span class="titolo">Una trappola che abbiamo trovato</span>
+<p>Nel pacchetto CodeZip il programma <code>node</code> che Playwright usa internamente perde il permesso di esecuzione, e lo strumento fallisce con <code>Permission denied: '/var/task/playwright/driver/node'</code>. Per questo <code>strumenti_aws.py</code> ha la funzione <code>_prepara_playwright</code>, che copia il programma in <code>/tmp</code>, lo rende eseguibile e lo indica a Playwright con la variabile <code>PLAYWRIGHT_NODEJS_PATH</code>. Con il deploy a container, che conserva i permessi dei file, non servirebbe: è una nostra deduzione, non l'abbiamo provato.</p>
+</div>
+
+<div class="riquadro attenzione"><span class="titolo">Il web è un input non fidato</span>
+<p>Una pagina web può contenere istruzioni scritte per ingannare il modello. In produzione conviene limitare i siti che l'agente può aprire e non dargli, nella stessa conversazione, strumenti con effetti importanti senza un controllo come la regola Cedar del Lab 4.</p>
+</div>
+
+<div class="riquadro kiro"><span class="titolo">Prova con Kiro</span>
+<p>Chiedi a Kiro di scrivere un terzo strumento: <em>In app/agent/strumenti_aws.py aggiungi uno strumento grafico_consumi(valori: list[float]) che usa Code Interpreter per calcolare la media mobile a tre mesi e restituirla come tabella in testo.</em></p>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

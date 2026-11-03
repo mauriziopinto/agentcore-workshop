@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 1 · Runtime</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Lab 1 · Runtime</h1>
+<p class="sottotitolo">Crei l'agente TelcoCare, lo provi sul tuo ambiente e lo pubblichi su AgentCore Runtime. Venticinque minuti.</p>
+
+<div class="riquadro concetto"><span class="titolo">Concetto: AgentCore Runtime</span>
+<p>Runtime esegue il codice del tuo agente senza che tu gestisca server o container. Qui usiamo il deploy di tipo <em>CodeZip</em>: il CLI impacchetta il codice Python con le sue dipendenze e lo carica, senza Docker.</p>
+<p>Ogni conversazione ha un ID di sessione. Ogni sessione gira in una microVM isolata, che resta viva per le richieste successive della stessa sessione. Una sessione nuova parte da una microVM nuova.</p>
+</div>
+
+<ol class="passi">
+<li>
+  <p>Crea il progetto dal modello Strands in Python. L'opzione <code>--skip-git</code> evita di creare un repository git dentro quello del workshop.</p>
+  <div class="blocco"><pre><code>cd ~/agentcore-workshop
+agentcore create --name TelcoCare --template agent-python-strands --skip-git
+cd TelcoCare</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <pre class="uscita">creating project tree
+installing CDK dependencies with npm
+syncing Python dependencies with uv
+created project 'TelcoCare' in ./TelcoCare</pre>
+  Ci vuole circa mezzo minuto. Da qui in poi tutti i comandi partono dalla cartella <code>~/agentcore-workshop/TelcoCare</code>.</div>
+</li>
+
+<li>
+  <p>Guarda cosa ha creato il CLI.</p>
+  <table>
+    <tr><th>Percorso</th><th>Contenuto</th></tr>
+    <tr><td><code>app/agent/main.py</code></td><td>Il codice dell'agente: modello, strumenti e punto di ingresso <code>@app.entrypoint</code></td></tr>
+    <tr><td><code>app/agent/model/load.py</code></td><td>Il modello Bedrock usato dall'agente</td></tr>
+    <tr><td><code>agentcore/agentcore.json</code></td><td>L'elenco delle risorse AgentCore del progetto. È il file che il CLI modifica quando aggiungi qualcosa</td></tr>
+    <tr><td><code>agentcore/cdk/</code></td><td>L'applicazione AWS CDK che trasforma <code>agentcore.json</code> in uno stack CloudFormation</td></tr>
+  </table>
+  <div class="blocco"><pre><code>cat agentcore/agentcore.json</code></pre></div>
+  <p>Il modello del progetto dichiara già un Runtime (<code>agent</code>) e una Memory (<code>agentMemory</code>).</p>
+</li>
+
+<li>
+  <p>Togli la Memory. La aggiungiamo nel Lab 2, così vedi la differenza fra un agente con e senza memoria.</p>
+  <div class="blocco"><pre><code>agentcore remove memory --name agentMemory</code></pre></div>
+  <p>Il codice del modello controlla la variabile <code>MEMORY_AGENTMEMORY_ID</code>: se non c'è, l'agente funziona senza memoria.</p>
+</li>
+
+<li>
+  <p>Sostituisci <code>main.py</code> con la versione TelcoCare.</p>
+  <div class="blocco"><pre><code>cp ../risorse/lab1/main.py app/agent/main.py</code></pre></div>
+  <p>Rispetto al modello cambiano due cose: il prompt di sistema in italiano e uno strumento locale, <code>calcola_rata</code>. Uno strumento Strands è una funzione Python con il decoratore <code>@tool</code>: il modello legge la docstring per capire quando usarlo.</p>
+  <div class="blocco"><span class="etichetta">app/agent/main.py (estratto)</span><pre><code>@tool
+def calcola_rata(prezzo_euro: float, mesi: int) -&gt; str:
+    """Calcola la rata mensile per l'acquisto a rate di uno smartphone, senza interessi.
+
+    Args:
+        prezzo_euro: prezzo totale del dispositivo in euro
+        mesi: numero di rate mensili (da 1 a 48)
+    """
+    if mesi &lt; 1 or mesi &gt; 48:
+        return "Il numero di rate deve essere compreso fra 1 e 48."
+    return f"{mesi} rate da {prezzo_euro / mesi:.2f} euro al mese"</code></pre></div>
+</li>
+
+<li>
+  <p>Avvia l'agente in locale. Il server si ricarica da solo quando modifichi i file.</p>
+  <div class="blocco"><pre><code>agentcore dev</code></pre></div>
+  <p>Aspetta la riga <code>Agent 'agent' is running on port 8080</code>, poi apri un secondo terminale e fai una domanda all'agente locale.</p>
+  <div class="blocco"><pre><code>cd ~/agentcore-workshop/TelcoCare
+python3 ../scripts/chiedi.py --locale "Vorrei uno smartphone da 899 euro in 30 rate. Quanto pago al mese?"</code></pre></div>
+  <p>Lo script <code>chiedi.py</code> costruisce il payload JSON, stampa il comando <code>agentcore invoke</code> che esegue e rende leggibile la risposta, che arriva in streaming.</p>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Una risposta simile a questa. Il testo cambia da una prova all'altra, i numeri dei token pure.
+  <pre class="uscita">[strumento] calcola_rata
+[token] input 616, output 79
+Per uno smartphone da 899 euro in 30 rate paghi 29,97 euro al mese, senza interessi.
+[token] input 720, output 40</pre>
+  La riga <code>[strumento]</code> dice che il modello ha chiamato la tua funzione. Le righe <code>[token]</code> sono una per ogni chiamata al modello.</div>
+  <p>Torna al primo terminale e ferma il server con <code>Ctrl+C</code>.</p>
+</li>
+
+<li>
+  <p>Pubblica l'agente su AgentCore Runtime.</p>
+  <div class="blocco"><pre><code>agentcore deploy</code></pre></div>
+  <p>Il primo deploy dura da 3 a 5 minuti, perché prepara anche l'account per AWS CDK. Intanto leggi il riquadro qui sotto.</p>
+  <div class="riquadro concetto"><span class="titolo">Cosa crea il deploy</span>
+  <p>Il CLI sintetizza lo stack CloudFormation <code>AgentCore-TelcoCare-default</code> e lo crea. Per ora lo stack contiene il Runtime e il suo ruolo IAM di esecuzione, con i permessi per chiamare i modelli Bedrock e scrivere log, trace e metriche. Il CLI attiva anche CloudWatch Transaction Search, che serve per le trace del Lab 6.</p>
+  <p>L'account e la regione di destinazione sono in <code>agentcore/aws-targets.json</code>, creato al primo deploy.</p>
+  </div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <pre class="uscita">deploying AgentCore-TelcoCare-default (usually takes a few minutes)
+deployed project 'TelcoCare' to target 'default'</pre></div>
+</li>
+
+<li>
+  <p>Controlla cosa è stato creato.</p>
+  <div class="blocco"><pre><code>agentcore status --json</code></pre></div>
+  <p>Ogni risorsa ha il suo ARN. L'ID è l'ultima parte dell'ARN. Lo script <code>id.py</code> lo estrae per te, e lo useremo nei prossimi lab.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/id.py runtime</code></pre></div>
+</li>
+
+<li>
+  <p>Parla con l'agente pubblicato. Questa volta senza <code>--locale</code>: la richiesta va al Runtime, firmata con le tue credenziali AWS.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione uno "Ciao, mi chiamo Anna e preferisco essere contattata via email."</code></pre></div>
+  <p>Nella stessa sessione chiedi se si ricorda di te.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione uno "Come mi chiamo e come preferisco essere contattata?"</code></pre></div>
+  <p>Ora fai la stessa domanda in una sessione nuova.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione due "Come mi chiamo e come preferisco essere contattata?"</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Nella sessione <code>uno</code> l'agente risponde Anna ed email. Nella sessione <code>due</code> non sa chi sei.</div>
+  <div class="riquadro concetto"><span class="titolo">Perché</span>
+  <p>Nella sessione <code>uno</code> la microVM è ancora viva e tiene l'agente, con la conversazione, nella memoria del processo. La sessione <code>due</code> gira in un'altra microVM, che non sa nulla della prima.</p>
+  <p>Anche la sessione <code>uno</code> prima o poi si chiude, e con lei la conversazione. Per ricordare fra una sessione e l'altra serve AgentCore Memory, che aggiungi nel prossimo lab.</p>
+  </div>
+</li>
+</ol>
+
+<div class="riquadro kiro"><span class="titolo">Prova con Kiro</span>
+<p>Apri Kiro nella cartella del progetto e chiedigli di aggiungere uno strumento:</p>
+<div class="blocco"><pre><code>kiro-cli chat</code></pre></div>
+<p><em>In app/agent/main.py aggiungi uno strumento Strands verifica_copertura(comune: str) che risponde "fibra FTTH disponibile" per Milano, Roma e Bari e "solo FTTC" per gli altri comuni. Registralo nella lista tools.</em></p>
+<p>Provalo con <code>agentcore dev</code> e <code>chiedi.py --locale</code>. Se lo tieni, il <code>cp</code> del Lab 3 lo sovrascrive: va bene così.</p>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulizia finale</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Pulizia finale</h1>
+<p class="sottotitolo">Cancelli tutto quello che hai creato durante il workshop. Circa sette minuti, quasi tutti di attesa.</p>
+
+<p>Le risorse del workshop costano poco quando non sono usate, ma alcune hanno un costo fisso o conservano dati. La pulizia le cancella tutte.</p>
+
+<ol class="passi">
+<li>
+  <p>Dalla cartella del progetto lancia lo script di pulizia.</p>
+  <div class="blocco"><pre><code>cd ~/agentcore-workshop/TelcoCare
+bash ../scripts/pulizia.sh</code></pre></div>
+  <p>Lo script fa tre cose:</p>
+  <ul>
+    <li>toglie tutte le risorse da <code>agentcore.json</code> con <code>agentcore remove all --yes</code> e pubblica il progetto vuoto con <code>agentcore deploy --yes</code>, così il CLI cancella lo stack <code>AgentCore-TelcoCare-default</code>;</li>
+    <li>cancella lo stack <code>telcocare-crm</code> della Lambda;</li>
+    <li>cancella i gruppi di log che restano dopo le risorse, cioè quelli che hanno <code>TelcoCare</code> o <code>telcocare</code> nel nome.</li>
+  </ul>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  <pre class="uscita">removing stack AgentCore-TelcoCare-default
+removed project 'TelcoCare' from target 'default'
+...
+stack telcocare-crm cancellato
+cancellato /aws/bedrock-agentcore/runtimes/TelcoCare_default_agent-...-DEFAULT
+...
+Pulizia completata.</pre>
+  Nelle nostre prove lo script ha impiegato circa 7 minuti, quasi tutti per cancellare lo stack AgentCore.</div>
+</li>
+
+<li>
+  <p>Controlla che non sia rimasto nulla.</p>
+  <div class="blocco"><pre><code>aws cloudformation describe-stacks --query "Stacks[?contains(StackName,'TelcoCare') || contains(StackName,'telcocare')].StackName"
+aws bedrock-agentcore-control list-agent-runtimes --query "agentRuntimes[?contains(agentRuntimeName,'TelcoCare')].agentRuntimeName"
+aws bedrock-agentcore-control list-memories --query "memories[?contains(id,'TelcoCare')].[id,status]"</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Tre liste vuote, <code>[]</code>. Una Memory può restare per qualche minuto nello stato <code>DELETING</code>: è normale, sparisce da sola.</div>
+</li>
+</ol>
+
+<div class="riquadro concetto"><span class="titolo">Cosa resta</span>
+<p>Restano lo stack <code>CDKToolkit</code>, creato al primo deploy per preparare l'account a AWS CDK, e l'impostazione di CloudWatch Transaction Search. Non hanno a che fare solo con questo workshop, quindi lo script non li tocca. Restano anche i file sul tuo ambiente: il codice in <code>app/</code>, gli schemi e le regole.</p>
+</div>
+
+<h2>Per continuare</h2>
+<ul>
+  <li><a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-cli-get-started.html">Tutorial ufficiale: Build, deploy, and operate an agent</a></li>
+  <li><a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/">Guida di Amazon Bedrock AgentCore</a></li>
+  <li><a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/policy-getting-started.html">Getting started with Policy in AgentCore</a></li>
+  <li><a href="https://strandsagents.com/">Strands Agents</a></li>
+</ul>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>

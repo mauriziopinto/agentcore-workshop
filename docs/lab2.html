@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 2 · Memory</title>
+<link rel="stylesheet" href="assets/stile.css">
+</head>
+<body>
+<header class="testata">
+  <button class="menu-bottone" type="button">Menu</button>
+  <a href="index.html"><span class="marchio">AgentCore</span> Workshop</a>
+  <span class="spazio"></span>
+  <span>TelcoCare</span>
+</header>
+<div class="contenitore">
+<nav class="indice"></nav>
+<main>
+
+<h1>Lab 2 · Memory</h1>
+<p class="sottotitolo">L'agente ricorda le preferenze di un cliente anche in una conversazione nuova. Venticinque minuti.</p>
+
+<div class="riquadro concetto"><span class="titolo">Concetto: AgentCore Memory</span>
+<p>Memory ha due livelli.</p>
+<ul>
+  <li>La memoria a breve termine salva ogni messaggio della conversazione come un <em>evento</em>, legato a un utente (<code>actorId</code>) e a una sessione.</li>
+  <li>La memoria a lungo termine legge gli eventi in background e ne estrae <em>ricordi</em> secondo delle <em>strategie</em>. Ogni strategia scrive in un suo spazio, il <em>namespace</em>.</li>
+</ul>
+<p>In questo lab usi tre strategie: <code>SEMANTIC</code> per i fatti (in <code>/users/{actorId}/facts</code>), <code>USER_PREFERENCE</code> per le preferenze (in <code>/users/{actorId}/preferences</code>) e <code>SUMMARIZATION</code> per i riassunti di ogni sessione. All'inizio di ogni richiesta l'agente recupera i ricordi pertinenti e li aggiunge al contesto del modello.</p>
+</div>
+
+<ol class="passi">
+<li>
+  <p>Aggiungi la Memory al progetto.</p>
+  <div class="blocco"><pre><code>agentcore add memory --name agentMemory --strategies SEMANTIC,USER_PREFERENCE,SUMMARIZATION</code></pre></div>
+  <p>Il nome <code>agentMemory</code> non è casuale: al deploy il CLI passa al Runtime l'ID della Memory nella variabile <code>MEMORY_AGENTMEMORY_ID</code>, che il codice del modello già legge.</p>
+</li>
+
+<li>
+  <p>Aggiorna la configurazione di recupero dei ricordi.</p>
+  <div class="blocco"><pre><code>cp ../risorse/lab2/session.py app/agent/memory/session.py</code></pre></div>
+  <p>Per ogni namespace la configurazione dice quanti ricordi recuperare (<code>top_k</code>) e con quale punteggio minimo di pertinenza. Il modello del progetto usava 0,5; le frasi brevi come una preferenza di contatto possono avere un punteggio più basso, quindi scendiamo a 0,3, come nel tutorial ufficiale.</p>
+  <div class="blocco"><span class="etichetta">app/agent/memory/session.py (estratto)</span><pre><code>retrieval_config = {
+    f"/users/{actor_id}/facts": RetrievalConfig(top_k=3, relevance_score=0.3),
+    f"/users/{actor_id}/preferences": RetrievalConfig(top_k=3, relevance_score=0.3),
+    f"/summaries/{actor_id}/{session_id}": RetrievalConfig(top_k=3, relevance_score=0.3),
+}</code></pre></div>
+</li>
+
+<li>
+  <p>Pubblica le modifiche.</p>
+  <div class="blocco"><pre><code>agentcore deploy</code></pre></div>
+  <p>Questo deploy dura circa 5 minuti, perché la creazione della Memory è la parte più lenta. Nelle nostre prove sono serviti 4 minuti e mezzo.</p>
+</li>
+
+<li>
+  <p>Racconta qualcosa di te all'agente, come Anna.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione preferenze "Ciao, sono Anna. Preferisco essere contattata solo via email, mai al telefono. A casa ho la fibra e lavoro da remoto."</code></pre></div>
+  <p>Lo script passa <code>--utente</code> nel campo <code>actorId</code> del payload. È così che Memory sa di chi sono i ricordi.</p>
+</li>
+
+<li>
+  <p>Controlla i ricordi estratti. L'estrazione è asincrona: nelle nostre prove il primo ricordo è comparso dopo circa un minuto. Se la lista è vuota, aspetta trenta secondi e riprova.</p>
+  <div class="blocco"><pre><code>MEMORY_ID=$(python3 ../scripts/id.py memory)
+agentcore memory record list --id $MEMORY_ID --namespace /users/anna/preferences</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Un ricordo simile a questo, scritto dal modello che estrae le preferenze:
+  <pre class="uscita">"text": "{\"context\":\"Modalità di contatto con il servizio clienti\",
+         \"preference\":\"Preferisce essere contattata solo via email, mai al telefono\", ...}"</pre>
+  Guarda anche i fatti:
+  <div class="blocco"><pre><code>agentcore memory record list --id $MEMORY_ID --namespace /users/anna/facts</code></pre></div>
+  Nelle nostre prove sono comparsi quattro fatti: il nome, la preferenza di contatto, il lavoro da remoto e la fibra a casa.</div>
+</li>
+
+<li>
+  <p>Apri una sessione nuova, sempre come Anna, senza ripetere le tue preferenze.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente anna --sessione guasto "Ho un problema con la connessione. Come mi contatterete per aggiornarmi?"</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  L'agente risponde che ti aggiornerà via email e non al telefono, e magari ricorda che lavori da remoto. Nel Lab 1, in una sessione nuova, non sapeva nulla di te.</div>
+</li>
+
+<li>
+  <p>Fai la stessa domanda come un altro cliente.</p>
+  <div class="blocco"><pre><code>python3 ../scripts/chiedi.py --utente marco --sessione guasto "Ho un problema con la connessione. Come mi contatterete per aggiornarmi?"</code></pre></div>
+  <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
+  Marco non eredita le preferenze di Anna: i ricordi sono separati per <code>actorId</code>.</div>
+</li>
+</ol>
+
+<div class="riquadro attenzione"><span class="titolo">Chi decide chi è l'utente</span>
+<p>In questo lab l'<code>actorId</code> lo scrive chi chiama l'agente, quindi chiunque potrebbe dichiararsi Anna e leggerne le preferenze. In un sistema vero l'identità dell'utente si ricava da un token verificato: il Runtime accetta in ingresso anche token JWT, per esempio di Amazon Cognito o del provider di identità aziendale, e il codice prende l'utente dal token invece che dal payload. Ne riparliamo nel Lab 3.</p>
+</div>
+
+<div class="riquadro concetto"><span class="titolo">Per esplorare</span>
+<p>Lanciato senza opzioni, <code>agentcore memory</code> apre un browser interattivo di Memory: utenti, sessioni, eventi e ricordi.</p>
+<div class="blocco"><pre><code>agentcore memory</code></pre></div>
+</div>
+
+</main>
+</div>
+<script src="assets/sito.js"></script>
+</body>
+</html>
