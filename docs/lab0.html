@@ -28,9 +28,11 @@
 </li>
 
 <li>
-  <p>Vai nella cartella del repository del workshop. Se nel tuo ambiente non c'è ancora, clonalo con il link che ti dà chi conduce il workshop.</p>
-  <div class="blocco"><pre><code>cd ~/agentcore-workshop
+  <p>Clona il repository del workshop. È privato: serve l'invito su GitHub che hai ricevuto per email, da accettare prima di questo passo.</p>
+  <div class="blocco"><pre><code>git clone https://github.com/REPO_DEL_WORKSHOP.git ~/agentcore-workshop
+cd ~/agentcore-workshop
 ls</code></pre></div>
+  <p>Git ti chiede nome utente e password di GitHub. Come password GitHub non accetta quella dell'account: serve un <em>personal access token</em>. Se non ne hai uno, crealo da GitHub, in <em>Settings</em>, <em>Developer settings</em>, <em>Personal access tokens</em>, con il permesso di lettura sul repository.</p>
   <div class="riquadro verifica"><span class="titolo">Cosa dovresti vedere</span>
   Le cartelle <code>docs</code> (questo sito), <code>risorse</code> (i file da copiare nei lab) e <code>scripts</code> (piccoli strumenti di supporto).</div>
 </li>
@@ -57,7 +59,7 @@ echo 'export AWS_REGION=us-east-1' &gt;&gt; ~/.bashrc</code></pre></div>
 
 Tutto pronto. Puoi passare al Lab 1.</pre></div>
   <div class="riquadro attenzione"><span class="titolo">Attenzione</span>
-  Se il modello non risponde con un errore di accesso, il tuo account non ha ancora abilitato i modelli Anthropic su Amazon Bedrock. Chiama chi conduce il workshop.</div>
+  Se il modello risponde con un errore di accesso, il tuo account non ha ancora inviato il modulo che Anthropic richiede una volta sola prima di usare i modelli Claude su Amazon Bedrock. Chiama chi conduce il workshop.</div>
 </li>
 
 <li>
