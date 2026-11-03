@@ -3,7 +3,7 @@
 
 Uso (dalla cartella del progetto TelcoCare):
     python3 ../scripts/chiedi.py --utente anna --sessione uno "Ciao, sono Anna"
-    python3 ../scripts/chiedi.py --locale "Ciao"          # agente in locale (agentcore dev)
+    python3 ../scripts/chiedi.py --locale "Ciao"          # agente in locale (agentcore dev --port 8181)
 
 Lo script costruisce il payload JSON (così gli apostrofi non rompono la shell),
 stampa il comando `agentcore invoke` che esegue e filtra la risposta in streaming.
@@ -32,6 +32,7 @@ def main() -> None:
     p.add_argument("--utente", default="default", help="chi sta scrivendo (actorId per la Memory)")
     p.add_argument("--sessione", default="uno", help="nome breve della conversazione")
     p.add_argument("--locale", action="store_true", help="usa l'agente in locale (agentcore dev)")
+    p.add_argument("--porta", default="8181", help="porta dell'agente locale (default 8181, la 8080 è di Code Editor)")
     p.add_argument("--solo-id", action="store_true", help="stampa solo l'ID di sessione, senza chiamare l'agente")
     a = p.parse_args()
 
@@ -44,7 +45,7 @@ def main() -> None:
     payload = json.dumps({"prompt": a.domanda, "actorId": a.utente}, ensure_ascii=False)
     comando = ["agentcore", "invoke", "--runtime", "agent", "--payload", payload]
     if a.locale:
-        comando.append("--local")
+        comando += ["--local", "--port", a.porta]
     else:
         comando += ["--session-id", id_sessione(a.utente, a.sessione)]
 

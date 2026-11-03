@@ -77,8 +77,10 @@ def calcola_rata(prezzo_euro: float, mesi: int) -&gt; str:
 
 <li>
   <p>Avvia l'agente in locale. Il server si ricarica da solo quando modifichi i file.</p>
-  <div class="blocco"><pre><code>agentcore dev</code></pre></div>
-  <p>Aspetta la riga <code>Agent 'agent' is running on port 8080</code>, poi apri un secondo terminale e fai una domanda all'agente locale.</p>
+  <div class="blocco"><pre><code>agentcore dev --port 8181</code></pre></div>
+  <div class="riquadro attenzione"><span class="titolo">Attenzione</span>
+  La porta predefinita di <code>agentcore dev</code> è la 8080, ma nel tuo ambiente la usa già Code Editor. Se lanci <code>agentcore dev</code> senza <code>--port</code>, la domanda arriva a Code Editor e ricevi <code>{"error":"Unauthorized"}</code> con <code>status=401</code>. Usa sempre <code>--port 8181</code>: <code>chiedi.py --locale</code> chiama già quella porta.</div>
+  <p>Aspetta la riga <code>Agent 'agent' is running on port 8181</code>, poi apri un secondo terminale e fai una domanda all'agente locale.</p>
   <div class="blocco"><pre><code>cd ~/agentcore-workshop/TelcoCare
 python3 ../scripts/chiedi.py --locale "Vorrei uno smartphone da 899 euro in 30 rate. Quanto pago al mese?"</code></pre></div>
   <p>Lo script <code>chiedi.py</code> costruisce il payload JSON, stampa il comando <code>agentcore invoke</code> che esegue e rende leggibile la risposta, che arriva in streaming.</p>
@@ -132,7 +134,7 @@ deployed project 'TelcoCare' to target 'default'</pre></div>
 <p>Apri Kiro nella cartella del progetto e chiedigli di aggiungere uno strumento:</p>
 <div class="blocco"><pre><code>kiro-cli chat</code></pre></div>
 <p><em>In app/agent/main.py aggiungi uno strumento Strands verifica_copertura(comune: str) che risponde "fibra FTTH disponibile" per Milano, Roma e Bari e "solo FTTC" per gli altri comuni. Registralo nella lista tools.</em></p>
-<p>Provalo con <code>agentcore dev</code> e <code>chiedi.py --locale</code>. Se lo tieni, il <code>cp</code> del Lab 3 lo sovrascrive: va bene così.</p>
+<p>Provalo con <code>agentcore dev --port 8181</code> e <code>chiedi.py --locale</code>. Se lo tieni, il <code>cp</code> del Lab 3 lo sovrascrive: va bene così.</p>
 </div>
 
 </main>
