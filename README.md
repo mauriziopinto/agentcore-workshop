@@ -39,6 +39,20 @@ la Lambda del CRM non ha URL pubblici. Tutto si cancella con `scripts/pulizia.sh
 - Gruppi di log CloudWatch del Runtime, dell'harness, della Lambda e delle valutazioni
 - Stack `CDKToolkit` e attivazione di CloudWatch Transaction Search, al primo deploy (la pulizia non li tocca)
 
+## Pubblicazione del sito
+
+`infra/sito.yaml` crea un bucket S3 privato e una distribuzione CloudFront che lo legge con
+Origin Access Control. Il sito è pubblico in HTTPS sull'indirizzo di CloudFront, il bucket no.
+
+```bash
+aws cloudformation deploy --region us-east-1 --stack-name agentcore-workshop-sito --template-file infra/sito.yaml
+aws s3 sync docs/ s3://agentcore-workshop-sito-<ACCOUNT_ID>/ --delete --exclude ".DS_Store"
+aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "/*"
+```
+
+Per toglierlo: svuota il bucket (`aws s3 rm s3://agentcore-workshop-sito-<ACCOUNT_ID>/ --recursive`)
+e cancella lo stack.
+
 ## Origine
 
 Il percorso segue il tutorial ufficiale AWS
